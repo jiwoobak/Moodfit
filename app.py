@@ -16,42 +16,55 @@ st.markdown("""
             background: linear-gradient(135deg, #d2faff, #ffffff);
         }
         .fade-in {
-            animation: fadeIn 1.5s ease-in-out;
+            animation: fadeIn 1.4s ease-in-out;
         }
         @keyframes fadeIn {
             0% { opacity: 0; transform: translateY(10px); }
             100% { opacity: 1; transform: translateY(0); }
         }
+        .title {
+            text-align: center;
+            font-size: 48px;
+            font-weight: 900;
+            margin-top: -10px;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 20px;
+            color: #555;
+            margin-top: -15px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# 앱 타이틀
+# 히어로 이미지
 # ----------------------------
-st.markdown("""
-    <div class='fade-in'>
-        <h1 style='text-align:center; font-size:48px; font-weight:900;'>
-            🏋️ MoodFit
-        </h1>
-        <p style='text-align:center; font-size:22px; color:#555; margin-top:-15px;'>
-            감정 기반 개인 맞춤 운동 추천 서비스
-        </p>
-    </div>
+st.image("assets/home_fitness.jpg", use_column_width=True)
+
+# ----------------------------
+# 타이틀 텍스트
+# ----------------------------
+st.markdown(f"""
+    <h1 class='fade-in title'>🏋️ MoodFit</h1>
+    <p class='fade-in subtitle'>감정 기반 개인 맞춤 운동 추천 서비스</p>
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# 간단한 문구
+# 안내 문장
 # ----------------------------
 st.markdown("""
-    <p style='text-align:center; color:#333; font-size:18px; margin-top:20px;' class='fade-in'>
-        오늘의 기분을 선택하면<br>당신의 감정에 딱 맞는 운동을 추천해드릴게요!
+    <p class='fade-in' style='text-align:center; font-size:18px; color:#333; margin-top:20px;'>
+        오늘의 감정을 선택하면<br>
+        당신에게 딱 맞는 운동 루틴을 추천해드릴게요!
     </p>
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# 자동 페이지 이동 (2초)
+# 2초 후 자동 이동
 # ----------------------------
 time.sleep(2)
 st.switch_page("pages/1_user_info2.py")
+
 
 
