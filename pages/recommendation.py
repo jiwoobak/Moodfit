@@ -7,7 +7,6 @@ import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
-from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import date, datetime
 
