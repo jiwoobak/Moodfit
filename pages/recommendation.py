@@ -7,7 +7,6 @@ import requests
 import pandas as pd
 import numpy as np
 import streamlit as st
-from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import date, datetime
 
@@ -114,7 +113,6 @@ def load_workouts():
 # 3) 날씨 조회
 # =========================
 def get_weather(city: str):
-    load_dotenv()
     key = os.getenv("WEATHER_API_KEY")
     if not key:
         return "unknown", 0.0
@@ -267,7 +265,6 @@ def robust_json_parse(text):
 def llm_rank_top3(candidates_df, user_row, daily_row,
                   weather, temp, city, place_pref, equip_list,
                   merged_user_info):
-    load_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         st.error("OPENAI_API_KEY 환경변수가 없습니다. .env 또는 환경변수에 넣어주세요.")
