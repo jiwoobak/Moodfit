@@ -43,4 +43,4 @@ st.markdown("""
 if "start_redirect" not in st.session_state:
     st.session_state.start_redirect = True
     time.sleep(2)
-    st.switch_page("1_user_info2")
+    st.switch_page("1_user_info2.py")
