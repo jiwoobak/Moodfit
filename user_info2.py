@@ -36,15 +36,19 @@ with col2:
 
 col3, col4 = st.columns(2)
 with col3:
-    age = st.number_input("나이", min_value=10, max_value=100, value=25)
+    age = st.number_input("나이 (만나이)", min_value=10, max_value=100, value=25)
 with col4:
     activity = st.selectbox("평소 활동량", ["낮음", "보통", "높음"])
 
 col5, col6 = st.columns(2)
 with col5:
-    height = st.number_input("키 (cm)", min_value=100, max_value=250, value=170)
+    height = st.text_input("키 (cm)")
+    if height.isdigit():
+        height = int(height)
 with col6:
-    weight = st.number_input("몸무게 (kg)", min_value=30, max_value=200, value=60)
+    weight = st.text_input("몸무게 (kg)")
+    if weight.isdigit():
+        weight = int(weight)
 
 st.markdown("---")
 
@@ -128,4 +132,3 @@ if st.button("💾 회원 등록 완료", use_container_width=True):
             # 새 파일 생성
             new_data.to_csv(csv_path, index=False, encoding="utf-8-sig")
             st.success("🎉 회원 등록이 완료되었습니다!")
-            st.balloons()
