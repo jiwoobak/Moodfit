@@ -141,4 +141,3 @@ else:
             new_data.to_csv(daily_csv, index=False)
 
         st.success("✔️ 오늘의 컨디션이 성공적으로 저장되었습니다!")
-        st.balloons()
