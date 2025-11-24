@@ -19,5 +19,5 @@ st.markdown("---")
 
 # 버튼 클릭하면 다음 페이지 이동
 if st.button("👉 시작하기", use_container_width=True):
-    st.switch_page("1_user_info2")
+    st.switch_page("1_user_info2.py")
 
