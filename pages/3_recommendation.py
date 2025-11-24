@@ -352,7 +352,7 @@ def llm_rank_top3(candidates_df, user_row, daily_row,
 # =========================
 # 7) Google Sheets에서 users/daily 로드
 # =========================
-sh = connect_gsheet("MoodFit_users")   # 👉 스프레드시트 이름
+sh = connect_gsheet("MoodFit")   # 👉 스프레드시트 이름
 ws_users = sh.worksheet("users")
 ws_daily = sh.worksheet("daily")
 ws_reco = sh.worksheet("recommendation")   # 👉 추천 결과 저장용 시트 (이름 정확히!)
