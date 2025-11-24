@@ -42,8 +42,8 @@ st.markdown("---")
 # 저장 버튼
 if st.button("💾 평가 제출하기", use_container_width=True):
 
-    sh = connect_gsheet("MoodFit_users")
-    ws_daily = sh.worksheet("daily")
+    sh = connect_gsheet("MoodFit")
+    ws_daily = sh.worksheet("evaluation")
 
     # daily sheet 데이터 전체 로드
     rows = ws_daily.get_all_values()
