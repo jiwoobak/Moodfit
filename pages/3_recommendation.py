@@ -67,18 +67,28 @@ weather, temp = get_weather(city)
 st.info(f"현재날씨: {weather}, {temp:.1f}°C")
 
 
-# ========================= LOAD Google Sheets =========================
+# ========================= LOAD SHEETS =========================
 sh = connect_gsheet("MoodFit")
 ws_users = sh.worksheet("users")
 ws_daily = sh.worksheet("daily")
 ws_reco = sh.worksheet("recommendation")
 
+# === RAW 데이터 조회 후 DataFrame 변환 (빈 행 대비 처리) ===
+daily_raw = ws_daily.get_all_values()   # 전체 값 가져오기
+if len(daily_raw) < 2:
+    st.error("❌ daily 시트에 데이터가 부족합니다. 최소 1개의 데이터 행이 필요합니다.")
+    st.stop()
+
+daily_df = pd.DataFrame(daily_raw[1:], columns=daily_raw[0])  # 첫 row는 컬럼 헤더
 users_df = pd.DataFrame(ws_users.get_all_records())
-daily_raw = ws_daily.get_all_values()
-daily_df = pd.DataFrame(daily_raw[1:], columns=daily_raw[0])  # 첫행을 헤더로 사용
+
+# === 날짜 변환 ===
+if "날짜" not in daily_df.columns:
+    st.error("❌ daily 시트에 '날짜' 헤더가 없습니다. 정확히 '날짜' 로 입력해주세요.")
+    st.stop()
+
 daily_df["날짜"] = pd.to_datetime(daily_df["날짜"], errors="coerce").dt.date
 
-workouts_df = load_workouts()
 
 
 # ========================= 사용자 선택 =========================
@@ -155,12 +165,30 @@ JSON만 출력하세요.
     top3 = parse_json(resp.choices[0].message.content)["top3"]
 
     # ========================= recommendation 저장 =========================
+    if st.button("🤖 Top3 추천 받기", use_container_width=True):
+
+    with st.spinner("추천 생성 중..."):
+        top3 = llm_rank_top3(candidates_df, user_row, daily_row,
+                             weather, temp, city, place_pref, equip_list, merged)
+
+    if not top3 or len(top3) < 1:
+        st.error("❌ 추천 생성 실패. 다시 시도하세요.")
+        st.stop()
+
+    # Recommendation 시트에 한 줄 저장
     ws_reco.append_row([
         user_name,
-        str(pick_date),
+        str(pick_date_dt),
         purpose,
-        top3[0]["운동명"], top3[1]["운동명"], top3[2]["운동명"],
-        top3[0]["이유"], top3[1]["이유"], top3[2]["이유"],
+        top3[0]["운동명"] if len(top3) > 0 else "",
+        top3[1]["운동명"] if len(top3) > 1 else "",
+        top3[2]["운동명"] if len(top3) > 2 else "",
+        top3[0]["이유"] if len(top3) > 0 else "",
+        top3[1]["이유"] if len(top3) > 1 else "",
+        top3[2]["이유"] if len(top3) > 2 else "",
+        target_intensity,
+        weather,
+        place_pref
     ])
 
     st.success("🎉 추천 결과 저장 완료!")
