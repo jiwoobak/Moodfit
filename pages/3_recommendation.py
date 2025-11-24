@@ -514,3 +514,12 @@ if st.button("🤖 Top3 운동 추천 받기", use_container_width=True):
         """, unsafe_allow_html=True)
 
     daily_df.drop(columns=["_date"], inplace=True, errors="ignore")
+
+# =======================================
+# 평가 대시보드 이동 버튼
+# =======================================
+st.markdown("---")
+st.write("추천 결과가 만족스러웠나요? 평가를 진행해주세요!")
+
+if st.button("📊 추천 평가 페이지로 이동", use_container_width=True):
+    st.switch_page("pages/4_evaluation_dashboard.py")   # 파일명, .py 제거
