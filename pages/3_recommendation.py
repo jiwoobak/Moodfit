@@ -9,37 +9,47 @@ from sheets_auth import connect_gsheet
 
 st.set_page_config(page_title="운동 추천", page_icon="🏋️", layout="centered")
 
-st.markdown("""
+st.markdown(
+    """
 <h1 style='text-align:center; font-weight:700;'>🏋️ 맞춤 운동 추천</h1>
 <p style="text-align:center; color:gray; margin-top:-10px;">
 오늘의 컨디션 + 날씨 기반 Top3 운동 추천
 </p>
-""", unsafe_allow_html=True)
-
+""",
+    unsafe_allow_html=True,
+)
 
 # ========================= WORKOUT CSV =========================
 WORKOUT_CSV = "workout.csv"
 
+
 def read_csv(path):
-    for enc in ["utf-8-sig","utf-8","cp949"]:
+    for enc in ["utf-8-sig", "utf-8", "cp949"]:
         try:
             return pd.read_csv(path, encoding=enc)
-        except:
+        except Exception:
             pass
     st.error("❌ workout.csv 읽기 실패")
     st.stop()
 
 
 def split_tags(x):
-    if pd.isna(x): return []
+    if pd.isna(x):
+        return []
     return [s.strip() for s in str(x).split(",") if s.strip()]
 
 
 def load_workouts():
     df = read_csv(WORKOUT_CSV)
+    if "운동목적" not in df.columns:
+        st.error("❌ workout.csv 에 '운동목적' 컬럼이 없습니다.")
+        st.stop()
     df["운동목적_list"] = df["운동목적"].apply(split_tags)
     return df
 
+
+# 전역에서 한 번만 로드
+workouts_df = load_workouts()
 
 # ========================= 날씨 조회 =========================
 def get_weather(city):
@@ -51,7 +61,7 @@ def get_weather(city):
     try:
         res = requests.get(url).json()
         return res["weather"][0]["main"].lower(), res["main"]["temp"]
-    except:
+    except Exception:
         return "unknown", 0.0
 
 
@@ -66,7 +76,6 @@ city = st.text_input("🌍 도시명", "Seoul")
 weather, temp = get_weather(city)
 st.info(f"현재날씨: {weather}, {temp:.1f}°C")
 
-
 # ========================= LOAD SHEETS =========================
 sh = connect_gsheet("MoodFit")
 ws_users = sh.worksheet("users")
@@ -74,7 +83,7 @@ ws_daily = sh.worksheet("daily")
 ws_reco = sh.worksheet("recommendation")
 
 # === RAW 데이터 조회 후 DataFrame 변환 (빈 행 대비 처리) ===
-daily_raw = ws_daily.get_all_values()   # 전체 값 가져오기
+daily_raw = ws_daily.get_all_values()  # 전체 값 가져오기
 if len(daily_raw) < 2:
     st.error("❌ daily 시트에 데이터가 부족합니다. 최소 1개의 데이터 행이 필요합니다.")
     st.stop()
@@ -89,44 +98,61 @@ if "날짜" not in daily_df.columns:
 
 daily_df["날짜"] = pd.to_datetime(daily_df["날짜"], errors="coerce").dt.date
 
-
-
 # ========================= 사용자 선택 =========================
 st.markdown("### 👤 사용자 선택")
 user_name = st.selectbox("오늘 추천 받을 사용자", users_df["이름"].unique().tolist())
 
 user_daily = daily_df[daily_df["이름"] == user_name]
+if user_daily.empty:
+    st.error("❌ 선택한 사용자의 daily 데이터가 없습니다.")
+    st.stop()
+
 pick_date = st.selectbox("추천 기준 날짜", sorted(user_daily["날짜"].unique(), reverse=True))
 daily_row = user_daily[user_daily["날짜"] == pick_date].iloc[0]
+pick_date_dt = pick_date  # 날짜 그대로 저장
 
+# 사용자 정적 정보
+user_row = users_df[users_df["이름"] == user_name].iloc[0]
+place_pref = user_row.get("운동장소선호", "상관없음")
+equip_raw = user_row.get("보유장비", "")
+equip_list = [s.strip() for s in str(equip_raw).split(",") if s.strip()]
 
 # ========================= RULE 기반 후보군 =========================
-purpose = daily_row["운동목적"]
-intensity = "중강도"  # 기본값 placeholder
-
-candidates = workouts_df[workouts_df["운동목적_list"].apply(lambda x: purpose in x)]
+purpose = daily_row.get("운동목적", "")
+if not purpose:
+    st.warning("⚠️ daily 시트에 '운동목적' 값이 비어 있습니다. 전체 운동에서 추천합니다.")
+    candidates = workouts_df.copy()
+else:
+    candidates = workouts_df[
+        workouts_df["운동목적_list"].apply(lambda x: purpose in x)
+    ]
+    if candidates.empty:
+        st.warning("⚠️ 해당 운동목적에 맞는 운동이 없어 전체 운동에서 추천합니다.")
+        candidates = workouts_df.copy()
 
 st.markdown("---")
 
 # ========================= 추천 버튼 =========================
 if st.button("🤖 Top3 추천 받기", use_container_width=True):
-
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     rule_candidates = [
         {
             "운동명": r["운동명"],
             "운동목적": r["운동목적"],
-            "운동강도": r["운동강도"],
+            "운동강도": r.get("운동강도", ""),
         }
         for _, r in candidates.iterrows()
     ]
 
-    system_prompt = """
+    # system 프롬프트 (문자열 연결로 place_pref / equip_list 적용)
+    system_prompt = (
+        """
 당신은 운동 추천 전문가입니다.
 사용자의 컨디션, 날씨, 목표 목적을 고려하여 운동 3개를 추천하고 이유를 작성하세요.
 서로 다른 유형의 운동을 선택하세요.
 JSON만 출력하세요.
+
 [중요 규칙]
 1) Top3는 서로 다른 유형/계열로 다양해야 합니다.
    - 예: 요가/스트레칭 계열만 2개 이상 포함되면 안 됩니다.
@@ -138,11 +164,14 @@ JSON만 출력하세요.
    현실적으로 수행 가능한 운동을 우선하세요.
 4) 운동 장소/날씨:
    - 비/눈이거나 실내 선호면 실내/홈트 중심으로 추천하세요.
-   - 사용자 장소 권장: {place_pref}
+   - 사용자 장소 권장: """
+        + str(place_pref)
+        + """
 5) 보유 장비:
    - 사용자가 가진 장비로 가능한 운동을 우선하세요.
-   - 보유장비: {", ".join(equip_list) if equip_list else "없음/미기재"}
-6) JSON 형식 외 텍스트는 절대 출력하지 마세요.
+   - 보유장비: """
+        + (", ".join(equip_list) if equip_list else "없음/미기재")
+        + """
 
 반드시 JSON만 출력합니다.
 형식={
@@ -152,44 +181,53 @@ JSON만 출력하세요.
 {"rank":3,"운동명":"", "이유":""}
 ]}
 """
-
-    resp = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role":"system","content":system_prompt},
-            {"role":"user","content":json.dumps(rule_candidates, ensure_ascii=False)}
-        ],
-        temperature=0.6
     )
 
-    top3 = parse_json(resp.choices[0].message.content)["top3"]
-
-    # ========================= recommendation 저장 =========================
-    if st.button("🤖 Top3 추천 받기", use_container_width=True):
-
     with st.spinner("추천 생성 중..."):
-        top3 = llm_rank_top3(candidates_df, user_row, daily_row,
-                             weather, temp, city, place_pref, equip_list, merged)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": json.dumps(rule_candidates, ensure_ascii=False),
+                },
+            ],
+            temperature=0.6,
+        )
+
+        raw_content = resp.choices[0].message.content
+        try:
+            top3 = parse_json(raw_content)["top3"]
+        except Exception as e:
+            st.error(f"❌ JSON 파싱 실패: {e}")
+            st.text(raw_content)
+            st.stop()
 
     if not top3 or len(top3) < 1:
         st.error("❌ 추천 생성 실패. 다시 시도하세요.")
         st.stop()
 
-    # Recommendation 시트에 한 줄 저장
-    ws_reco.append_row([
-        user_name,
-        str(pick_date_dt),
-        purpose,
-        top3[0]["운동명"] if len(top3) > 0 else "",
-        top3[1]["운동명"] if len(top3) > 1 else "",
-        top3[2]["운동명"] if len(top3) > 2 else "",
-        top3[0]["이유"] if len(top3) > 0 else "",
-        top3[1]["이유"] if len(top3) > 1 else "",
-        top3[2]["이유"] if len(top3) > 2 else "",
-        target_intensity,
-        weather,
-        place_pref
-    ])
+    # ========================= recommendation 시트에 저장 =========================
+    # target_intensity는 daily 시트에 '목표강도' 컬럼이 있다고 가정, 없으면 빈 문자열
+    target_intensity = daily_row.get("목표강도", "")
+
+    ws_reco.append_row(
+        [
+            user_name,
+            str(pick_date_dt),
+            purpose,
+            top3[0]["운동명"] if len(top3) > 0 else "",
+            top3[1]["운동명"] if len(top3) > 1 else "",
+            top3[2]["운동명"] if len(top3) > 2 else "",
+            top3[0]["이유"] if len(top3) > 0 else "",
+            top3[1]["이유"] if len(top3) > 1 else "",
+            top3[2]["이유"] if len(top3) > 2 else "",
+            target_intensity,
+            weather,
+            place_pref,
+        ]
+    )
 
     st.success("🎉 추천 결과 저장 완료!")
 
@@ -201,4 +239,3 @@ JSON만 출력하세요.
     if st.button("📊 평가하기"):
         st.session_state["recommended_workouts"] = [w["운동명"] for w in top3]
         st.switch_page("4_evaluation_dashboard")
-
